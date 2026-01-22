@@ -7,87 +7,66 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
+        :root { --accent: #e63946; --bg: #0a0a0a; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
+            font-family: sans-serif;
+            background-color: var(--bg);
+            color: white;
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            overflow: hidden;
         }
         #reader {
-            width: 90%;
-            max-width: 400px;
-            border-radius: 12px;
+            width: 85vw;
+            max-width: 350px;
+            border: 2px solid var(--accent);
+            border-radius: 20px;
             overflow: hidden;
-            border: 2px solid var(--tg-theme-button-color, #248bed);
         }
-        .info {
-            margin-top: 20px;
-            text-align: center;
-            padding: 0 20px;
-        }
-        #status {
-            font-weight: bold;
-            color: var(--tg-theme-hint-color, #999);
-        }
-        button {
-            margin-top: 20px;
-            padding: 12px 24px;
-            background-color: var(--tg-theme-button-color, #248bed);
-            color: var(--tg-theme-button-text-color, #ffffff);
+        .info { text-align: center; margin-top: 20px; }
+        h2 { color: var(--accent); letter-spacing: 2px; }
+        #reader button {
+            background: var(--accent);
+            color: white;
             border: none;
-            border-radius: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin: 10px;
             font-weight: bold;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
-
     <div id="reader"></div>
-    
     <div class="info">
-        <p id="status">Наведите камеру на QR-код клиента</p>
+        <h2>СКАНЕР БАРА</h2>
+        <p>Наведите камеру на QR-код клиента</p>
     </div>
-
-    <button onclick="window.location.reload()">Перезагрузить камеру</button>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Развернуть на весь экран
+        tg.ready();
+        tg.expand();
 
-        function onScanSuccess(decodedText, decodedResult) {
-            // Виброотклик
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
-            }
+        function onScanSuccess(decodedText) {
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
             
-            // Отправляем данные боту и закрываем приложение
+            // ВАЖНО: передаем данные боту
             tg.sendData(decodedText);
-            tg.close();
+            
+            // Закрываем приложение
+            setTimeout(() => { tg.close(); }, 100);
         }
 
-        function onScanFailure(error) {
-            // Ошибки сканирования в консоль (слишком часто возникают при поиске кода)
-        }
-
-        let html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", 
-            { 
-                fps: 10, 
-                qrbox: {width: 250, height: 250},
-                rememberLastUsedCamera: true,
-                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-            },
-            /* verbose= */ false
-        );
-        
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        let scanner = new Html5QrcodeScanner("reader", { 
+            fps: 15, 
+            qrbox: 250,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+        });
+        scanner.render(onScanSuccess);
     </script>
 </body>
 </html>
