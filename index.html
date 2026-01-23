@@ -3,112 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bar QR Scanner</title>
+    <title>Bar POS Demo (No Server)</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { 
             --accent: #e63946; 
+            --success: #2a9d8f;
             --bg: #0a0a0a; 
             --card: #1a1a1a;
+            --text: #ffffff;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg);
-            color: white;
+            color: var(--text);
             margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
+            min-height: 100vh;
         }
+
+        .screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+        .active { display: flex; }
+
         #reader {
-            width: 85vw;
+            width: 100%;
             max-width: 350px;
             border: 2px solid var(--accent);
-            border-radius: 24px;
+            border-radius: 20px;
             overflow: hidden;
             background: black;
-            box-shadow: 0 0 20px rgba(230, 57, 70, 0.3);
+            margin-bottom: 20px;
         }
-        .info { 
-            text-align: center; 
-            margin-top: 25px;
-            padding: 0 20px;
+
+        .profile-card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 20px;
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
         }
-        h2 { 
-            color: var(--accent); 
-            letter-spacing: 2px; 
+
+        .points-big {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--accent);
+            margin: 10px 0;
+        }
+
+        input[type="number"] {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 15px;
+            outline: none;
+        }
+
+        .btn-group { display: flex; gap: 10px; width: 100%; max-width: 350px; }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-add { background: var(--success); color: white; }
+        .btn-spend { background: var(--accent); color: white; }
+        .btn-scan { background: #333; color: white; width: 100%; margin-top: 15px; }
+
+        .history-list { width: 100%; max-width: 350px; margin-top: 20px; }
+        .history-item {
+            background: var(--card);
+            padding: 12px;
+            border-radius: 10px;
             margin-bottom: 8px;
-            font-size: 20px;
+            display: flex;
+            justify-content: space-between;
         }
-        p {
-            opacity: 0.7;
-            font-size: 14px;
-        }
-        /* Customizing library buttons */
-        #reader button {
-            background: var(--accent) !important;
-            color: white !important;
-            border: none !important;
-            padding: 12px 24px !important;
-            border-radius: 12px !important;
-            font-weight: bold !important;
-            text-transform: uppercase !important;
-            cursor: pointer !important;
-            margin: 10px !important;
-        }
-        #reader img {
-            display: none !important;
+        .h-amount.plus { color: var(--success); }
+        .h-amount.minus { color: var(--accent); }
+        
+        .demo-badge {
+            background: #ffd166;
+            color: black;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="reader"></div>
-    <div class="info">
-        <h2>СКАНЕР БАРА</h2>
-        <p id="status">Наведите камеру на QR-код клиента</p>
+
+    <!-- SCREEN 1: SCANNER -->
+    <div id="screen-scan" class="screen active">
+        <div class="demo-badge">OFFLINE DEMO MODE</div>
+        <h2 style="color: var(--accent);">SCAN CLIENT</h2>
+        <div id="reader"></div>
+        <p style="opacity: 0.6;">Сканируйте любой QR для теста</p>
+    </div>
+
+    <!-- SCREEN 2: PROFILE -->
+    <div id="screen-profile" class="screen">
+        <div class="profile-card">
+            <h3 id="p-name">Тестовый Клиент</h3>
+            <p id="p-id" style="opacity: 0.5; font-size: 12px;"></p>
+            <div class="points-big" id="p-points">0</div>
+            <div style="font-size: 12px; opacity: 0.6;">БАЛЛОВ</div>
+        </div>
+
+        <input type="number" id="amount-input" placeholder="Сумма" pattern="\d*">
+
+        <div class="btn-group">
+            <button class="btn btn-add" onclick="handleAction('add')">Начислить 10%</button>
+            <button class="btn btn-spend" onclick="handleAction('spend')">Списать</button>
+        </div>
+
+        <div class="history-list" id="history-container"></div>
+
+        <button class="btn btn-scan" onclick="location.reload()">Другой QR</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        
-        // Настройка цветов интерфейса Telegram
-        tg.setHeaderColor('#0a0a0a');
-        tg.setBackgroundColor('#0a0a0a');
+
+        let currentUserId = null;
+        let scanner = null;
+
+        // Эмуляция базы данных в памяти браузера
+        function getDb() {
+            return JSON.parse(localStorage.getItem('bar_demo_db') || '{}');
+        }
+
+        function saveDb(db) {
+            localStorage.setItem('bar_demo_db', JSON.stringify(db));
+        }
 
         function onScanSuccess(decodedText) {
-            // Виброотклик при успешном сканировании
-            if (tg.HapticFeedback) {
-                tg.HapticFeedback.notificationOccurred('success');
+            if (scanner) scanner.clear();
+            currentUserId = decodedText;
+            
+            let db = getDb();
+            // Если пользователя нет, создаем "фейкового"
+            if (!db[currentUserId]) {
+                db[currentUserId] = {
+                    points: 500, // Даем 500 стартовых для теста
+                    history: []
+                };
+                saveDb(db);
             }
             
-            // Отправляем данные боту
-            tg.sendData(decodedText);
+            renderProfile();
+            showScreen('screen-profile');
+        }
+
+        function renderProfile() {
+            const db = getDb();
+            const user = db[currentUserId];
             
-            // Закрываем приложение с небольшой задержкой для плавности
-            setTimeout(() => { 
-                tg.close(); 
-            }, 150);
+            document.getElementById('p-id').innerText = "ID: " + currentUserId;
+            document.getElementById('p-points').innerText = user.points;
+            
+            const hCont = document.getElementById('history-container');
+            hCont.innerHTML = '<p style="opacity:0.5">История (локально):</p>';
+            
+            user.history.slice().reverse().forEach(tx => {
+                const color = tx.amount > 0 ? 'plus' : 'minus';
+                hCont.innerHTML += `
+                    <div class="history-item">
+                        <span>${tx.date}</span>
+                        <span class="h-amount ${color}">${tx.amount > 0 ? '+' : ''}${tx.amount}</span>
+                    </div>
+                `;
+            });
         }
 
-        function onScanFailure(error) {
-            // Игнорируем ошибки во время поиска кода в кадре
+        function handleAction(type) {
+            const amount = parseInt(document.getElementById('amount-input').value);
+            if (!amount || amount <= 0) return alert("Введите сумму");
+
+            let db = getDb();
+            let user = db[currentUserId];
+            let diff = 0;
+
+            if (type === 'add') {
+                diff = Math.floor(amount * 0.1);
+                user.points += diff;
+            } else {
+                if (amount > user.points) return alert("Мало баллов!");
+                diff = -amount;
+                user.points -= amount;
+            }
+
+            user.history.push({
+                date: new sys.Date().toLocaleTimeString(),
+                amount: diff
+            });
+
+            saveDb(db);
+            renderProfile();
+            document.getElementById('amount-input').value = '';
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
-        // Инициализация сканера с оптимальными настройками
-        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-            fps: 15, 
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-        });
-        
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        scanner.render(onScanSuccess);
     </script>
 </body>
 </html>
