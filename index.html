@@ -193,7 +193,8 @@
         }
 
         function handleAction(type) {
-            const amount = parseInt(document.getElementById('amount-input').value);
+            const amountInput = document.getElementById('amount-input');
+            const amount = parseInt(amountInput.value);
             if (!amount || amount <= 0) return alert("Введите сумму");
 
             let db = getDb();
@@ -210,13 +211,13 @@
             }
 
             user.history.push({
-                date: new sys.Date().toLocaleTimeString(),
+                date: new Date().toLocaleTimeString(),
                 amount: diff
             });
 
             saveDb(db);
             renderProfile();
-            document.getElementById('amount-input').value = '';
+            amountInput.value = '';
             
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
